@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -35,33 +35,7 @@ def chat(req: ChatRequest):
     tools = get_csv_tools()
     messages = req.history + [{"role": "user", "content": req.message}]
 
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        tools=tools,
-        messages=messages,
-    )
-
-    # Agentic tool-use loop: keep calling until Claude stops requesting tools
-    while response.stop_reason == "tool_use":
-        tool_results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                result = run_tool(block.name, block.input)
-                tool_results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": str(result),
-                    }
-                )
-
-        messages += [
-            {"role": "assistant", "content": response.content},
-            {"role": "user", "content": tool_results},
-        ]
-
+    try:
         response = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=1024,
@@ -69,6 +43,40 @@ def chat(req: ChatRequest):
             tools=tools,
             messages=messages,
         )
+
+        # Agentic tool-use loop: keep calling until Claude stops requesting tools
+        while response.stop_reason == "tool_use":
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    result = run_tool(block.name, block.input)
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": str(result),
+                        }
+                    )
+
+            messages += [
+                {"role": "assistant", "content": response.content},
+                {"role": "user", "content": tool_results},
+            ]
+
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1024,
+                system=SYSTEM_PROMPT,
+                tools=tools,
+                messages=messages,
+            )
+
+    except anthropic.AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=f"Authentication failed: {e.message}")
+    except anthropic.RateLimitError as e:
+        raise HTTPException(status_code=429, detail=f"Rate limit exceeded: {e.message}")
+    except anthropic.APIError as e:
+        raise HTTPException(status_code=e.status_code or 500, detail=f"API error: {e.message}")
 
     # Extract the final text reply
     answer = next(

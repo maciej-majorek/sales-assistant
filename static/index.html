@@ -242,7 +242,17 @@
           body: JSON.stringify({ message: msg, history }),
         });
 
-        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        if (!res.ok) {
+          const text = await res.text();
+          let errorMsg;
+          try {
+            const errData = JSON.parse(text);
+            errorMsg = errData.error || errData.detail || text;
+          } catch {
+            errorMsg = text || `Server error: ${res.status}`;
+          }
+          throw new Error(errorMsg);
+        }
         const data = await res.json();
         history = data.history;
 
@@ -250,7 +260,7 @@
         addBubble("assistant", data.reply);
       } catch (err) {
         thinking.remove();
-        addBubble("assistant", "Sorry, something went wrong. Please try again.");
+        addBubble("assistant", "Sorry, something went wrong. Please try again.\n\nError: " + err.message);
         console.error(err);
       }
 
