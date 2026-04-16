@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Net", "Net", "{9BD00AEE-B457-8A53-4987-79B2CE11DF4C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SalesAssistant", "Net\SalesAssistant.csproj", "{FA32265F-965E-FFB3-AE14-60B4F85E2360}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FA32265F-965E-FFB3-AE14-60B4F85E2360}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FA32265F-965E-FFB3-AE14-60B4F85E2360}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FA32265F-965E-FFB3-AE14-60B4F85E2360}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FA32265F-965E-FFB3-AE14-60B4F85E2360}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{FA32265F-965E-FFB3-AE14-60B4F85E2360} = {9BD00AEE-B457-8A53-4987-79B2CE11DF4C}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {09B48A6D-9A44-476F-B4FE-CB5A33A2C8A4}
+	EndGlobalSection
+EndGlobal

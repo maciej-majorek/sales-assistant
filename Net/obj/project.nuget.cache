@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "0n782GArCyg=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Maciej_Majorek\\source\\repos\\sales-assistant\\sales-assistant\\Net\\SalesAssistant.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Maciej_Majorek\\.nuget\\packages\\csvhelper\\31.0.4\\csvhelper.31.0.4.nupkg.sha512"
+  ],
+  "logs": []
+}
