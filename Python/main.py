@@ -9,7 +9,7 @@ from data_tools import get_csv_tools, run_tool
 app = FastAPI(title="Sales Assistant")
 client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from environment
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory="../static"), name="static")
 
 SYSTEM_PROMPT = (
     "You are a helpful sales assistant. "
@@ -27,7 +27,7 @@ class ChatRequest(BaseModel):
 
 @app.get("/")
 def root():
-    return FileResponse("static/index.html")
+    return FileResponse("../static/index.html")
 
 
 @app.post("/chat")

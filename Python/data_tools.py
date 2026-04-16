@@ -1,6 +1,6 @@
 import pandas as pd
 
-CSV_PATH = "sales.csv"
+CSV_PATH = "../sales.csv"
 
 
 def get_csv_tools():
