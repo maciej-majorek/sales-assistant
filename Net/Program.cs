@@ -3,7 +3,21 @@ using System.Text.Json;
 using SalesAssistant;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Enable CORS for cross-origin requests from different backend ports
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
+
+app.UseCors();
 
 const string SystemPrompt =
     "You are a helpful sales assistant. " +

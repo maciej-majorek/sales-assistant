@@ -30,20 +30,30 @@
     }
 
     .chat-header {
-      padding: 18px 24px;
+      padding: 14px 24px;
       border-bottom: 1px solid #e5e7eb;
       font-size: 18px;
       font-weight: 600;
       color: #111;
     }
 
-    .chat-header span {
+    .header-title {
+      margin-bottom: 10px;
+    }
+
+    .header-title span {
       display: inline-block;
       width: 10px; height: 10px;
       background: #22c55e;
       border-radius: 50%;
       margin-right: 8px;
       vertical-align: middle;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
     #messages {
@@ -177,7 +187,6 @@
     body.dark .suggestion-bar button:hover { background: #1d4ed8; color: #fff; }
 
     #dark-toggle {
-      margin-left: auto;
       background: none;
       border: 1px solid #d1d5db;
       border-radius: 6px;
@@ -189,13 +198,35 @@
     }
 
     body.dark #dark-toggle { border-color: #475569; }
+
+    #backend-select {
+      padding: 4px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      background: #fff;
+      color: #111;
+    }
+
+    body.dark #backend-select {
+      background: #0f172a;
+      border-color: #475569;
+      color: #f1f5f9;
+    }
   </style>
 </head>
 <body>
   <div class="chat-container">
     <div class="chat-header">
-      <span></span>Sales Assistant
-      <button id="dark-toggle" onclick="toggleDark()" title="Toggle dark mode">🌺</button>
+      <div class="header-title"><span></span>Sales Assistant</div>
+      <div class="header-controls">
+        <select id="backend-select" title="Select backend API">
+          <option value="python">Python</option>
+          <option value="net">Net</option>
+        </select>
+        <button id="dark-toggle" onclick="toggleDark()" title="Toggle dark mode">🌺</button>
+      </div>
     </div>
 
     <div id="messages">
@@ -218,6 +249,15 @@
   <script>
     let history = [];
 
+    const BACKEND_URLS = {
+      python: "http://localhost:8000",
+      net: "http://localhost:8001"
+    };
+
+    function getSelectedBackend() {
+      return document.getElementById("backend-select").value;
+    }
+
     function ask(text) {
       document.getElementById("input").value = text;
       send();
@@ -235,8 +275,11 @@
       addBubble("user", msg);
       const thinking = addBubble("thinking", "Thinking...");
 
+      const backend = getSelectedBackend();
+      const baseUrl = BACKEND_URLS[backend];
+
       try {
-        const res = await fetch("/chat", {
+        const res = await fetch(`${baseUrl}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: msg, history }),
@@ -293,8 +336,20 @@
       localStorage.setItem("darkMode", dark ? "1" : "0");
     }
 
-    // Restore preference on load
+    // Handle backend change - clear history and save preference
+    document.getElementById("backend-select").addEventListener("change", function() {
+      history = [];
+      localStorage.setItem("backend", this.value);
+      // Clear messages except the greeting
+      const messages = document.getElementById("messages");
+      messages.innerHTML = '<div class="bubble assistant">Hi! I can answer questions about your sales data. Try asking me about revenue, top products, regional performance, or trends.</div>';
+      document.getElementById("suggestions").style.display = "flex";
+    });
+
+    // Restore preferences on load
     if (localStorage.getItem("darkMode") === "1") toggleDark();
+    const savedBackend = localStorage.getItem("backend");
+    if (savedBackend) document.getElementById("backend-select").value = savedBackend;
   </script>
 </body>
 </html>

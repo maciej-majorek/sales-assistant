@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import anthropic
 
@@ -8,6 +9,15 @@ from data_tools import get_csv_tools, run_tool
 
 app = FastAPI(title="Sales Assistant")
 client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from environment
+
+# Enable CORS for cross-origin requests from different backend ports
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.mount("/static", StaticFiles(directory="../static"), name="static")
 
