@@ -1,2 +1,4 @@
 cd C:\Users\Maciej_Majorek\source\repos\sales-assistant
 C:\Users\Maciej_Majorek\sales-assistant> python -m uvicorn main:app --reload --port 8000
+
+dotnet run

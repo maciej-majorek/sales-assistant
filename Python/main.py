@@ -3,12 +3,25 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import anthropic
+from openai import AzureOpenAI, AuthenticationError, RateLimitError, APIError
+import json
+import os
 
 from data_tools import get_csv_tools, run_tool
 
 app = FastAPI(title="Sales Assistant")
-client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from environment
+
+# DIAL platform configuration
+DIAL_URL = "https://ai-proxy.lab.epam.com"
+DIAL_DEPLOYMENT = "gpt-4"
+DIAL_API_VERSION = "2024-02-01"
+DIAL_API_KEY = os.getenv("DIAL_API_KEY", "")
+
+client = AzureOpenAI(
+    azure_endpoint=DIAL_URL,
+    api_key=DIAL_API_KEY,
+    api_version=DIAL_API_VERSION,
+)
 
 # Enable CORS for cross-origin requests from different backend ports
 app.add_middleware(
@@ -30,6 +43,21 @@ SYSTEM_PROMPT = (
 )
 
 
+def convert_tools_to_openai_format(anthropic_tools: list) -> list:
+    """Convert Anthropic tool format to OpenAI function format."""
+    openai_tools = []
+    for tool in anthropic_tools:
+        openai_tools.append({
+            "type": "function",
+            "function": {
+                "name": tool["name"],
+                "description": tool["description"],
+                "parameters": tool["input_schema"],
+            }
+        })
+    return openai_tools
+
+
 class ChatRequest(BaseModel):
     message: str
     history: list = []
@@ -43,56 +71,61 @@ def root():
 @app.post("/chat")
 def chat(req: ChatRequest):
     tools = get_csv_tools()
-    messages = req.history + [{"role": "user", "content": req.message}]
+    openai_tools = convert_tools_to_openai_format(tools)
+
+    # Build messages in OpenAI format with system message first
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages.extend(req.history)
+    messages.append({"role": "user", "content": req.message})
 
     try:
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            tools=tools,
+        response = client.chat.completions.create(
+            model=DIAL_DEPLOYMENT,
             messages=messages,
+            tools=openai_tools,
+            max_tokens=1024,
         )
 
-        # Agentic tool-use loop: keep calling until Claude stops requesting tools
-        while response.stop_reason == "tool_use":
-            tool_results = []
-            for block in response.content:
-                if block.type == "tool_use":
-                    result = run_tool(block.name, block.input)
-                    tool_results.append(
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": str(result),
-                        }
-                    )
+        assistant_message = response.choices[0].message
 
-            messages += [
-                {"role": "assistant", "content": response.content},
-                {"role": "user", "content": tool_results},
-            ]
+        # Agentic tool-use loop: keep calling until model stops requesting tools
+        while assistant_message.tool_calls:
+            # Add assistant message with tool calls to history
+            messages.append(assistant_message.model_dump())
 
-            response = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=1024,
-                system=SYSTEM_PROMPT,
-                tools=tools,
+            # Process each tool call and add results
+            for tool_call in assistant_message.tool_calls:
+                tool_name = tool_call.function.name
+                tool_args = json.loads(tool_call.function.arguments) if tool_call.function.arguments else {}
+
+                result = run_tool(tool_name, tool_args)
+
+                # Add tool result message
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": str(result),
+                })
+
+            # Call API again with tool results
+            response = client.chat.completions.create(
+                model=DIAL_DEPLOYMENT,
                 messages=messages,
+                tools=openai_tools,
+                max_tokens=1024,
             )
+            assistant_message = response.choices[0].message
 
-    except anthropic.AuthenticationError as e:
+    except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=f"Authentication failed: {e.message}")
-    except anthropic.RateLimitError as e:
+    except RateLimitError as e:
         raise HTTPException(status_code=429, detail=f"Rate limit exceeded: {e.message}")
-    except anthropic.APIError as e:
+    except APIError as e:
         raise HTTPException(status_code=e.status_code or 500, detail=f"API error: {e.message}")
 
     # Extract the final text reply
-    answer = next(
-        (block.text for block in response.content if hasattr(block, "text")),
-        "Sorry, I could not generate a response.",
-    )
+    answer = assistant_message.content or "Sorry, I could not generate a response."
     messages.append({"role": "assistant", "content": answer})
 
-    return {"reply": answer, "history": messages}
+    # Return history without system message for client storage
+    return {"reply": answer, "history": messages[1:]}
