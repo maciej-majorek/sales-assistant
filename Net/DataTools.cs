@@ -112,6 +112,7 @@ public static class DataTools
         var config = new CsvConfiguration(CultureInfo.InvariantCulture)
         {
             HasHeaderRecord = true,
+            PrepareHeaderForMatch = args => args.Header.ToLower(),
         };
 
         using var reader = new StreamReader(CsvPath);

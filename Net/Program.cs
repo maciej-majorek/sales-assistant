@@ -19,6 +19,12 @@ var app = builder.Build();
 
 app.UseCors();
 
+// DIAL platform configuration
+const string DialUrl = "https://ai-proxy.lab.epam.com";
+const string DialDeployment = "gpt-4";
+const string DialApiVersion = "2024-02-01";
+var dialApiKey = Environment.GetEnvironmentVariable("DIAL_API_KEY") ?? "";
+
 const string SystemPrompt =
     "You are a helpful sales assistant. " +
     "Use the provided tools to query sales data from sales.csv and answer user questions accurately. " +
@@ -44,19 +50,21 @@ app.MapGet("/", () => Results.File(
 // Chat endpoint
 app.MapPost("/chat", async (ChatRequest req) =>
 {
-    var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
-    if (string.IsNullOrEmpty(apiKey))
+    if (string.IsNullOrEmpty(dialApiKey))
     {
-        return Results.Problem("ANTHROPIC_API_KEY environment variable not set", statusCode: 500);
+        return Results.Problem("DIAL_API_KEY environment variable not set", statusCode: 500);
     }
 
     using var httpClient = new HttpClient();
-    httpClient.BaseAddress = new Uri("https://api.anthropic.com/");
-    httpClient.DefaultRequestHeaders.Add("x-api-key", apiKey);
-    httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+    httpClient.BaseAddress = new Uri(DialUrl);
+    httpClient.DefaultRequestHeaders.Add("Api-Key", dialApiKey);
 
     var tools = DataTools.GetCsvTools();
+    var openAiTools = ConvertToolsToOpenAiFormat(tools);
+
+    // Build messages in OpenAI format with system message first
     var messages = new List<object>();
+    messages.Add(new { role = "system", content = SystemPrompt });
 
     // Add history if present
     if (req.History != null)
@@ -74,78 +82,69 @@ app.MapPost("/chat", async (ChatRequest req) =>
     {
         var requestBody = new
         {
-            model = "claude-sonnet-4-6",
+            model = DialDeployment,
             max_tokens = 1024,
-            system = SystemPrompt,
-            tools,
+            tools = openAiTools,
             messages
         };
 
-        var response = await SendAnthropicRequest(httpClient, requestBody);
+        var response = await SendDialRequest(httpClient, requestBody);
+        var assistantMessage = response.GetProperty("choices")[0].GetProperty("message");
 
-        // Agentic tool-use loop: keep calling until Claude stops requesting tools
-        while (response.GetProperty("stop_reason").GetString() == "tool_use")
+        // Agentic tool-use loop: keep calling until model stops requesting tools
+        while (assistantMessage.TryGetProperty("tool_calls", out var toolCalls) && toolCalls.GetArrayLength() > 0)
         {
-            var toolResults = new List<object>();
-            var assistantContent = new List<object>();
+            // Add assistant message with tool calls to history
+            messages.Add(assistantMessage);
 
-            foreach (var content in response.GetProperty("content").EnumerateArray())
+            // Process each tool call and add results
+            foreach (var toolCall in toolCalls.EnumerateArray())
             {
-                var type = content.GetProperty("type").GetString();
+                var function = toolCall.GetProperty("function");
+                var toolName = function.GetProperty("name").GetString()!;
+                var toolCallId = toolCall.GetProperty("id").GetString()!;
+                var arguments = function.GetProperty("arguments").GetString();
 
-                if (type == "tool_use")
+                JsonElement? inputs = null;
+                if (!string.IsNullOrEmpty(arguments))
                 {
-                    assistantContent.Add(content);
-
-                    var toolName = content.GetProperty("name").GetString()!;
-                    var toolId = content.GetProperty("id").GetString()!;
-                    var inputs = content.TryGetProperty("input", out var inputProp) ? inputProp : (JsonElement?)null;
-
-                    var result = DataTools.RunTool(toolName, inputs);
-                    var resultJson = JsonSerializer.Serialize(result);
-
-                    toolResults.Add(new
-                    {
-                        type = "tool_result",
-                        tool_use_id = toolId,
-                        content = resultJson
-                    });
+                    inputs = JsonDocument.Parse(arguments).RootElement;
                 }
-                else
+
+                var result = DataTools.RunTool(toolName, inputs);
+                var resultJson = JsonSerializer.Serialize(result);
+
+                // Add tool result message
+                messages.Add(new
                 {
-                    assistantContent.Add(content);
-                }
+                    role = "tool",
+                    tool_call_id = toolCallId,
+                    content = resultJson
+                });
             }
 
-            messages.Add(new { role = "assistant", content = assistantContent });
-            messages.Add(new { role = "user", content = toolResults });
-
+            // Call API again with tool results
             var nextRequestBody = new
             {
-                model = "claude-sonnet-4-6",
+                model = DialDeployment,
                 max_tokens = 1024,
-                system = SystemPrompt,
-                tools,
+                tools = openAiTools,
                 messages
             };
 
-            response = await SendAnthropicRequest(httpClient, nextRequestBody);
+            response = await SendDialRequest(httpClient, nextRequestBody);
+            assistantMessage = response.GetProperty("choices")[0].GetProperty("message");
         }
 
         // Extract the final text reply
-        var answer = "Sorry, I could not generate a response.";
-        foreach (var content in response.GetProperty("content").EnumerateArray())
-        {
-            if (content.GetProperty("type").GetString() == "text")
-            {
-                answer = content.GetProperty("text").GetString() ?? answer;
-                break;
-            }
-        }
+        var answer = assistantMessage.TryGetProperty("content", out var contentProp) && contentProp.ValueKind != JsonValueKind.Null
+            ? contentProp.GetString() ?? "Sorry, I could not generate a response."
+            : "Sorry, I could not generate a response.";
 
         messages.Add(new { role = "assistant", content = answer });
 
-        var history = messages.Select(m =>
+        // Return history without system message for client storage
+        var history = messages.Skip(1).Select(m =>
         {
             var element = JsonSerializer.SerializeToElement(m);
             return new MessageItem(
@@ -173,13 +172,34 @@ app.MapPost("/chat", async (ChatRequest req) =>
     }
 });
 
-async Task<JsonElement> SendAnthropicRequest(HttpClient client, object body)
+List<object> ConvertToolsToOpenAiFormat(List<object> anthropicTools)
 {
-    var json = JsonSerializer.Serialize(body, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+    var openAiTools = new List<object>();
+    foreach (var tool in anthropicTools)
+    {
+        var element = JsonSerializer.SerializeToElement(tool);
+        openAiTools.Add(new
+        {
+            type = "function",
+            function = new
+            {
+                name = element.GetProperty("name").GetString(),
+                description = element.GetProperty("description").GetString(),
+                parameters = element.GetProperty("input_schema")
+            }
+        });
+    }
+    return openAiTools;
+}
+
+async Task<JsonElement> SendDialRequest(HttpClient client, object body)
+{
+    var json = JsonSerializer.Serialize(body, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
     var content = new StringContent(json);
     content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
-    var response = await client.PostAsync("v1/messages", content);
+    var endpoint = $"/openai/deployments/{DialDeployment}/chat/completions?api-version={DialApiVersion}";
+    var response = await client.PostAsync(endpoint, content);
     var responseBody = await response.Content.ReadAsStringAsync();
 
     if (!response.IsSuccessStatusCode)
