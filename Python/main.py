@@ -78,6 +78,9 @@ def chat(req: ChatRequest):
     messages.extend(req.history)
     messages.append({"role": "user", "content": req.message})
 
+    # Track pandas queries executed
+    queries_executed = []
+
     try:
         response = client.chat.completions.create(
             model=DIAL_DEPLOYMENT,
@@ -97,6 +100,10 @@ def chat(req: ChatRequest):
             for tool_call in assistant_message.tool_calls:
                 tool_name = tool_call.function.name
                 tool_args = json.loads(tool_call.function.arguments) if tool_call.function.arguments else {}
+
+                # Capture the pandas query if it's a query_sales call
+                if tool_name == "query_sales" and "query" in tool_args:
+                    queries_executed.append(tool_args["query"])
 
                 result = run_tool(tool_name, tool_args)
 
@@ -128,4 +135,8 @@ def chat(req: ChatRequest):
     messages.append({"role": "assistant", "content": answer})
 
     # Return history without system message for client storage
-    return {"reply": answer, "history": messages[1:]}
+    return {
+        "reply": answer,
+        "history": messages[1:],
+        "queries": queries_executed,
+    }

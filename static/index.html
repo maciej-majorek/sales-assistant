@@ -99,6 +99,22 @@
 
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
+    .bubble.query {
+      background: #fef3c7;
+      color: #92400e;
+      align-self: flex-start;
+      border-left: 3px solid #f59e0b;
+      font-family: "Consolas", "Monaco", monospace;
+      font-size: 12px;
+      padding: 8px 12px;
+    }
+
+    body.dark .bubble.query {
+      background: #451a03;
+      color: #fcd34d;
+      border-left-color: #f59e0b;
+    }
+
     .input-row {
       display: flex;
       gap: 10px;
@@ -300,6 +316,14 @@
         history = data.history;
 
         thinking.remove();
+
+        // Show pandas queries if present (Python backend)
+        if (data.queries && data.queries.length > 0) {
+          for (const query of data.queries) {
+            addBubble("query", "🐼 Pandas query:\n" + query);
+          }
+        }
+
         addBubble("assistant", data.reply);
       } catch (err) {
         thinking.remove();
