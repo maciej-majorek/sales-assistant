@@ -317,10 +317,12 @@
 
         thinking.remove();
 
-        // Show pandas queries if present (Python backend)
+        // Show queries if present
         if (data.queries && data.queries.length > 0) {
+          const backend = getSelectedBackend();
+          const prefix = backend === "python" ? "🐼 Pandas query:" : "🔷 LINQ query:";
           for (const query of data.queries) {
-            addBubble("query", "🐼 Pandas query:\n" + query);
+            addBubble("query", prefix + "\n" + query);
           }
         }
 

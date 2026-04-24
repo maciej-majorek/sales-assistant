@@ -62,6 +62,9 @@ app.MapPost("/chat", async (ChatRequest req) =>
     var tools = DataTools.GetCsvTools();
     var openAiTools = ConvertToolsToOpenAiFormat(tools);
 
+    // Track LINQ queries executed
+    var queriesExecuted = new List<string>();
+
     // Build messages in OpenAI format with system message first
     var messages = new List<object>();
     messages.Add(new { role = "system", content = SystemPrompt });
@@ -111,7 +114,11 @@ app.MapPost("/chat", async (ChatRequest req) =>
                     inputs = JsonDocument.Parse(arguments).RootElement;
                 }
 
-                var result = DataTools.RunTool(toolName, inputs);
+                var (result, query) = DataTools.RunToolWithQuery(toolName, inputs);
+                if (query != null)
+                {
+                    queriesExecuted.Add(query);
+                }
                 var resultJson = JsonSerializer.Serialize(result);
 
                 // Add tool result message
@@ -153,7 +160,7 @@ app.MapPost("/chat", async (ChatRequest req) =>
             );
         }).ToList();
 
-        return Results.Ok(new ChatResponse(answer, history));
+        return Results.Ok(new ChatResponse(answer, history, queriesExecuted.Count > 0 ? queriesExecuted : null));
     }
     catch (HttpRequestException ex)
     {

@@ -8,7 +8,8 @@
     ".NETCoreApp,Version=v10.0": {
       "SalesAssistant/1.0.0": {
         "dependencies": {
-          "CsvHelper": "31.0.4"
+          "CsvHelper": "31.0.4",
+          "System.Linq.Dynamic.Core": "1.3.14"
         },
         "runtime": {
           "SalesAssistant.dll": {}
@@ -19,6 +20,14 @@
           "lib/net8.0/CsvHelper.dll": {
             "assemblyVersion": "31.0.0.0",
             "fileVersion": "31.0.4.18"
+          }
+        }
+      },
+      "System.Linq.Dynamic.Core/1.3.14": {
+        "runtime": {
+          "lib/net8.0/System.Linq.Dynamic.Core.dll": {
+            "assemblyVersion": "1.3.14.0",
+            "fileVersion": "1.3.14.0"
           }
         }
       }
@@ -36,6 +45,13 @@
       "sha512": "sha512-m4ikjUAn4XOD1tShxxk4ui42sHxjHdX52P7fPQ9K7tzJkPTEwiCbvEz3k73mTGSSaPTUCOp9VziQC757IqKLew==",
       "path": "csvhelper/31.0.4",
       "hashPath": "csvhelper.31.0.4.nupkg.sha512"
+    },
+    "System.Linq.Dynamic.Core/1.3.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-aiDKm/1/Bjz6vpB800Vftg2VIjnffvBSufpP9wpShD6zfb9cU+dSVdmrIu2S59z6x7Iwule6feEwxJP2kpyfgA==",
+      "path": "system.linq.dynamic.core/1.3.14",
+      "hashPath": "system.linq.dynamic.core.1.3.14.nupkg.sha512"
     }
   }
 }

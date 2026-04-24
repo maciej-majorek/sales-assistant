@@ -30,3 +30,4 @@ C:\Users\Maciej_Majorek\source\repos\sales-assistant\sales-assistant\Net\obj\Deb
 C:\Users\Maciej_Majorek\source\repos\sales-assistant\sales-assistant\Net\obj\Debug\net10.0\SalesAssistant.pdb
 C:\Users\Maciej_Majorek\source\repos\sales-assistant\sales-assistant\Net\obj\Debug\net10.0\SalesAssistant.genruntimeconfig.cache
 C:\Users\Maciej_Majorek\source\repos\sales-assistant\sales-assistant\Net\obj\Debug\net10.0\ref\SalesAssistant.dll
+C:\Users\Maciej_Majorek\source\repos\sales-assistant\sales-assistant\Net\bin\Debug\net10.0\System.Linq.Dynamic.Core.dll
